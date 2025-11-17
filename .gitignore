@@ -1,0 +1,32 @@
+*
+
+# Don't ignore directories (so we can recurse into them)
+!*/
+
+# Keep specific files
+!.gitignore
+!flake.lock
+!pyproject.toml
+!*.md
+!uv.lock
+
+# Keep all files in specific directories with certain extensions
+!**/*.json
+!**/*.sh
+!**/*.svg
+!**/*.png
+!**/*.nix
+!**/*.py
+
+
+# Ignore generated/build files even if they match above patterns
+out/
+build/
+*.log
+out
+result/
+data/
+
+# github
+!.github/
+!.github/**
