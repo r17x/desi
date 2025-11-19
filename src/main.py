@@ -1,4 +1,4 @@
-from edifice import App, Label, HBoxView, VBoxView, Window, component, use_state, Image as ImageUI, Button, Slider, use_async, run_subprocess_with_callback
+from edifice import App, Label, HBoxView, VBoxView, Window, CheckBox, component, use_state, Image as ImageUI, Button, Slider, use_async,  run_subprocess_with_callback
 from PySide6 import QtWidgets, QtGui
 from PIL import Image, ImageEnhance
 from functools import partial
@@ -74,31 +74,31 @@ def Header(self, title):
 
 @component
 def Effects(self, title, effects, on_change, is_disabled=False):
-    on_change_ = on_change if not is_disabled else lambda x: x
+    on_change_ = lambda x: x if is_disabled else on_change
     with VBoxView():
         Label(text=f"<h2>{title}</h2><hr>")
         with HBoxView():
             Label(f"Hue: {int(effects['hue'])}°", style={"width": 110})
             Slider(
-                min_value=-180, max_value=180, value=effects["hue"],
+                min_value=0 if is_disabled else -180, max_value=0 if is_disabled else 180, value=effects["hue"],
                 on_change=lambda v: (on_change_({**effects, "hue": v})),
             )
         with HBoxView():
             Label(f"Saturation: {effects['sat']:.2f}x", style={"width": 110})
             Slider(
-                min_value=0.0, max_value=3.0, value=effects["sat"],
+                min_value=0.0, max_value=0 if is_disabled else 3.0, value=effects["sat"],
                 on_change=lambda v: (on_change_({**effects, "sat": v}) ),
             )
         with HBoxView():
             Label(f"Value: {effects['val']:.2f}x", style={"width": 110})
             Slider(
-                min_value=0.0, max_value=3.0, value=effects["val"],
+                min_value=0.0, max_value=0 if is_disabled else 3.0, value=effects["val"],
                 on_change=lambda v: (on_change_({**effects, "val": v}) ),
             )
         with HBoxView():
             Label(f"Sharpness: {effects['sharp']:.2f}x", style={"width": 110})
             Slider(
-                min_value=0.0, max_value=3.0, value=effects["sharp"],
+                min_value=0.0, max_value=0 if is_disabled else 3.0, value=effects["sharp"],
                 on_change=lambda v: (on_change_({**effects, "sharp": v}) ),
             )
 
@@ -113,11 +113,11 @@ def image_load(path, callback):
         callback({"data": data, "error": None})
         return data
     except Exception as e:
-        callback({"error": str(e), "data": None})
+        callback({"error": "Failed to load Image", "data": None})
         return None
  
 @component
-def ImagePreview(self, images, effects):
+def ImagePreview(self, images, effects, on_change):
     """
     images: list[str] (file paths)
     effects: dict with keys hue, sat, val, sharp
@@ -126,36 +126,44 @@ def ImagePreview(self, images, effects):
         "error": None,
         "data": None,
         "name": None,
-        "index": 0,      # change by prev and next
+        "index": 0,                     # change by prev and next
+        "status": "idle",               # "loading" | "idle"
+        "effect_status": "original"     # "original"  | "effectable"
     })
 
     image_index = state["index"]
     image_path = images[image_index] if images and images[image_index] is not None else None 
     image_name = state["name"]
+    data = state["data"]
+    is_loading = state["status"] == "loading"
+    is_original = state["effect_status"] == "original"
 
     def updater_state(payload):
         set_state(lambda prev: {**prev, **payload})
+        if "effect_status" in payload: 
+            on_change(payload["effect_status"])
 
     def step(kind):
         if kind == "prev" and (image_index > 0 and image_index < len(images)):
-            set_state(lambda prev: {**prev, "index": prev["index"]-1})
+            set_state(lambda prev: {**prev, "index": prev["index"]-1, "data": None})
         elif kind == "next" and (image_index >= 0 and image_index < len(images)):
-            set_state(lambda prev: {**prev, "index": prev["index"]+1})
+            set_state(lambda prev: {**prev, "index": prev["index"]+1, "data": None})
 
     async def run_load_image():
         try:
-            if image_path is not None:
+            if image_path is not None and state["data"] is None:
                 # use_async won't work with plain partial function (high-order-function)
+                set_state(lambda prev: {**prev, "status": "loading" })
                 worker = partial(image_load, image_path)
                 data = await run_subprocess_with_callback(worker, updater_state)
-                set_state(lambda prev: {**prev, "data": data, "error": None })
+                set_state(lambda prev: {**prev, "data": data, "error": None, "status": "idle" })
         except asyncio.CancelledError:
-            set_state(lambda prev: {**prev, "error": "Cancelled"})
+            set_state(lambda prev: {**prev, "error": "Cancelled", "status": "idle" })
             raise 
         except Exception as e:
-            set_state(lambda prev: {**prev, "error": "Unknown: failed to load the image"})
+            set_state(lambda prev: {**prev, "error": "Unknown: failed to load the image", "status": "idle" })
 
-    use_async(run_load_image, image_path)
+    use_async(run_load_image, (image_path, len(images)))
 
     with VBoxView(style={"margin-top": 10}):
         with HBoxView(style={
@@ -166,11 +174,13 @@ def ImagePreview(self, images, effects):
             "align": "center",
             "padding": 8,
         }):
-            if state["data"]:
-                ImageUI(bytes_to_qpixmap(state["data"]), style={"border": "1px solid #ddd"})
+            if data:
+                ImageUI(bytes_to_qpixmap(data), style={"border": "1px solid #ddd"})
             else:
-                Label("No image yet", style={"color": "#888", "font-size": 12})
+                Label("Please wait...." if is_loading else "No image yet", style={"color": "#888", "font-size": 12})
         if state["data"]:
+            with VBoxView(style={"align": "center"}):
+                CheckBox(text="Show Original", checked=is_original, on_change=lambda _: updater_state({"effect_status": "effectable" if state["effect_status"] == "original" else "original"}))
             with HBoxView(style={ "padding": 5, "margin-top": 8, "padding-left": 5, "padding-right": 5 }) :
                 Button("Prev", on_click=lambda _: step("prev"))
                 Label(image_name or "-", style={"align": "center"})
@@ -178,13 +188,13 @@ def ImagePreview(self, images, effects):
 
 @component
 def MyApp(self):
-    # Directories
     state, set_state = use_state({
         "source_dir": None,     # dir for all images inputs
         "output_dir": None,     # dir for export
         "images": [],           # list[str] of file paths
         # effect configuration, user can adjust in ImagePreview
-        "image_effect": {"hue": 0.0, "sat": 1.0, "val": 1.0, "sharp": 1.0}
+        "image_effect": {"hue": 0.0, "sat": 1.0, "val": 1.0, "sharp": 1.0},
+        "preview_status": "original",
     })
 
     def updater(payload):
@@ -197,6 +207,8 @@ def MyApp(self):
 
     is_empty_source_images = len(source_images) == 0 
     is_disabled_effect = output_dir is None and is_empty_source_images
+    is_original = state["preview_status"] == "original"
+    is_effectable = state["preview_status"] == "effectable"
 
     def select_source_directory(_ev):
         path = pick_directory(title="Select Source Directory")
@@ -216,7 +228,7 @@ def MyApp(self):
     with Window(title="Desi — Image Effects"):
         Header(title="<h1>Desi - Image Viewer and Effects</h1>")
 
-        ImagePreview(images=source_images, effects=effects)
+        ImagePreview(images=source_images, effects=effects, on_change=lambda status: updater({"preview_status": status}))
 
         with VBoxView(style={"padding": 10} ):
             with HBoxView():
@@ -229,7 +241,7 @@ def MyApp(self):
 
             Effects(title="Effects", 
                     effects=effects, 
-                    is_disabled=is_disabled_effect,
+                    is_disabled=is_original,
                     on_change=lambda effects: updater({"image_effect": effects}))
 
             with HBoxView(style={"margin-top": 10}):
