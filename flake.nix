@@ -12,16 +12,29 @@
 
       perSystem =
         {
+          self',
           pkgs,
           lib,
           system,
           ...
         }:
         {
+
+          # ship it
+          packages.default = pkgs.writeShellApplication {
+            name = "desi";
+            runtimeInputs = [
+              (pkgs.pythonSet.mkVirtualEnv "desi-env" pkgs.workspace.deps.default)
+            ];
+            text = "python ${inputs.self.outPath}/src/main.py";
+          };
+
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [
               (final: prev: {
+                # building
+                mkApplication = (prev.callPackage inputs.pyproject-nix.build.util { }).mkApplication;
                 # pinned python with python 3.12
                 python = prev.python312;
                 pythonBase = prev.callPackage inputs.pyproject-nix.build.packages {
@@ -34,6 +47,14 @@
                     };
                   };
                 };
+                pythonSet = final.pythonBase.overrideScope (
+                  lib.composeManyExtensions [
+                    inputs.pyproject-build-systems.overlays.wheel
+                    (final.workspace.mkPyprojectOverlay {
+                      sourcePreference = "wheel";
+                    })
+                  ]
+                );
                 workspace = inputs.uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
               })
             ];
@@ -41,22 +62,12 @@
 
           devShells.default =
             let
-              overlay = pkgs.workspace.mkPyprojectOverlay {
-                sourcePreference = "wheel";
-              };
-
-              pythonSet = pkgs.pythonBase.overrideScope (
-                lib.composeManyExtensions [
-                  inputs.pyproject-build-systems.overlays.wheel
-                  overlay
-                ]
-              );
-
+              inherit (pkgs) pythonSet;
               editableOverlay = pkgs.workspace.mkEditablePyprojectOverlay {
                 # Use environment variable pointing to editable root directory
                 root = "$REPO_ROOT";
                 # Optional: Only enable editable for these packages
-                # members = [ "hello-world" ];
+                # members = [ "desi" ];
               };
 
               editablePythonSet = pythonSet.overrideScope editableOverlay;

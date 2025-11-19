@@ -7,7 +7,7 @@
 ## Prequisites
 
 * [install nix](https://zero-to-nix.com/start/install/)
-f
+
 
 ## Development
 
@@ -15,3 +15,10 @@ f
 2. go to project directory and run `nix develop` for load project dependencies in `nix-shell` (development environment)
 
 
+## Run This Application
+
+**Recomended** using nix - see [Prequisites](/#Prequisites)
+
+```bash
+nix run github:r17x/desi
+```
