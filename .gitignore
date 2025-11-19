@@ -2,6 +2,7 @@
 
 # Don't ignore directories (so we can recurse into them)
 !*/
+!src/
 
 # Keep specific files
 !.gitignore
@@ -17,6 +18,7 @@
 !**/*.png
 !**/*.nix
 !**/*.py
+!**/src/*.py
 
 
 # Ignore generated/build files even if they match above patterns
