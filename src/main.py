@@ -349,7 +349,7 @@ def MyApp(self):
                     on_change=lambda effects: updater({"image_effect": effects}))
 
             with HBoxView(style={"margin-top": 10}):
-                Button("Save Processed", on_click=save)
+                Button("Save Processed", on_click=lambda x: x)
 
 if __name__ == "__main__":
     App(MyApp()).start()
