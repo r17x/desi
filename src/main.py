@@ -292,7 +292,7 @@ def ImagePreview(self, images, effects, on_change):
                 Button("Next", on_click=lambda _: step("next"))
 
 @component
-def MyApp(self):
+def Desi(self):
     state, set_state = use_state({
         "source_dir": None,     # dir for all images inputs
         "output_dir": None,     # dir for export
@@ -352,4 +352,4 @@ def MyApp(self):
                 Button("Save Processed", on_click=lambda x: x)
 
 if __name__ == "__main__":
-    App(MyApp()).start()
+    App(Desi()).start()

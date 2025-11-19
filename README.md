@@ -68,6 +68,12 @@ nix run github:r17x/desi
    > python -m build
    > ```
 
+### With Hot Reload
+```console
+
+$ python -m edifice --inspect src/main.py Desi
+
+```
 ## Development
 
 ### With Nix
